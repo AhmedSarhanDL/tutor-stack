@@ -1,0 +1,78 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  content:
+    build: ./services/content
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.content.rule=PathPrefix(`/content`)"
+      - "traefik.http.routers.content.entrypoints=web"
+      - "traefik.http.services.content.loadbalancer.server.port=8000"
+      - "traefik.http.services.content.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.content-strip.stripprefix.prefixes=/content"
+      - "traefik.http.routers.content.middlewares=content-strip"
+  tutor-chat:
+    build: ./services/tutor_chat
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chat.rule=PathPrefix(`/chat`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.services.chat.loadbalancer.server.port=8000"
+      - "traefik.http.services.chat.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.chat-strip.stripprefix.prefixes=/chat"
+      - "traefik.http.routers.chat.middlewares=chat-strip"
+  auth:
+    build: ./services/auth
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
+      - "traefik.http.services.auth.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.auth-strip.stripprefix.prefixes=/auth"
+      - "traefik.http.routers.auth.middlewares=auth-strip"
+  assessment:
+    build: ./services/assessment
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.assess.rule=PathPrefix(`/assessment`)"
+      - "traefik.http.routers.assess.entrypoints=web"
+      - "traefik.http.services.assess.loadbalancer.server.port=8000"
+      - "traefik.http.services.assess.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.assess-strip.stripprefix.prefixes=/assessment"
+      - "traefik.http.routers.assess.middlewares=assess-strip"
+  notifier:
+    build: ./services/notifier
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notify.rule=PathPrefix(`/notify`)"
+      - "traefik.http.routers.notify.entrypoints=web"
+      - "traefik.http.services.notify.loadbalancer.server.port=8000"
+      - "traefik.http.services.notify.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.notify-strip.stripprefix.prefixes=/notify"
+      - "traefik.http.routers.notify.middlewares=notify-strip" 
