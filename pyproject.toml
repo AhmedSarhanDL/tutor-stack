@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tutor-stack"
+version = "0.1.0"
+description = "Tutor Stack platform - A comprehensive tutoring system"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Ahmed Sarhan", email = "ahmed.sarhan@example.com" }
+]
+dependencies = [
+    "tutor-stack-content @ {root}/services/content",
+    "tutor-stack-assessment @ {root}/services/assessment",
+    "tutor-stack-notifier @ {root}/services/notifier",
+    "tutor-stack-chat @ {root}/services/tutor_chat",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.0.0",
+    "pytest-asyncio==0.23.5",
+    "httpx==0.27.0",
+    "pytest-cov==4.1.0",
+    "black==24.2.0",
+    "isort==5.13.2",
+    "flake8==7.0.0",
+    "mypy==1.8.0"
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100 

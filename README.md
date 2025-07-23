@@ -1,101 +1,84 @@
-# Tutor Stack
+# Tutor Stack Platform
 
-A microservices-based tutoring platform.
+A comprehensive tutoring system composed of multiple microservices.
 
 ## Services
 
-- **Content Service**: Content management and search
-- **Auth Service**: User authentication and authorization
-- **Assessment Service**: Student assessment handling
-- **Notifier Service**: Notification management
-- **Tutor Chat Service**: Interactive tutoring chat
+- **Content Service**: Handles content storage and search functionality
+- **Assessment Service**: Manages grading and assessment functionality
+- **Notifier Service**: Handles notification delivery
+- **Tutor Chat Service**: Provides interactive tutoring using DSPy and OpenAI
+
+## Installation
+
+### Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/AhmedSarhanDL/tutor-stack.git
+cd tutor-stack
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install the project in development mode:
+```bash
+pip install -e ".[dev]"
+```
+
+This will install all services and their dependencies in development mode.
+
+### Production Installation
+
+For production, install the package without development dependencies:
+
+```bash
+pip install .
+```
+
+## Project Structure
+
+```
+tutor-stack/
+├── services/
+│   ├── content/          # Content management service
+│   ├── assessment/       # Assessment and grading service
+│   ├── notifier/         # Notification service
+│   └── tutor_chat/       # Interactive tutoring service
+├── pyproject.toml        # Root project configuration
+└── README.md            # This file
+```
 
 ## Development
 
-### Prerequisites
+Each service can be developed independently in its own directory. They can also be installed and used independently:
 
-- Python 3.11+
-- Docker and Docker Compose
-- Make (optional)
-
-### Local Setup
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd tutor-stack
-   ```
-
-2. Run the stack:
-   ```bash
-   docker compose up --build
-   ```
-
-3. Run tests:
-   ```bash
-   ./run_tests.sh
-   ```
-
-### Testing
-
-Each service has its own test suite in the `tests/` directory. Tests are written using pytest and include:
-- Functional tests
-- Input validation tests
-- Edge cases
-
-To run tests for a specific service:
 ```bash
-cd services/<service-name>
-pytest tests/
+pip install -e "./services/content[dev]"  # Install just the content service
 ```
 
-To run tests with coverage:
+## Running the Services
+
+Each service can be run independently using uvicorn:
+
 ```bash
-pytest tests/ --cov=. --cov-report=term-missing
+# Content Service
+uvicorn services.content.app.main:app --reload --port 8000
+
+# Assessment Service
+uvicorn services.assessment.app.main:app --reload --port 8001
+
+# Notifier Service
+uvicorn services.notifier.app.main:app --reload --port 8002
+
+# Tutor Chat Service
+uvicorn services.tutor_chat.app.main:app --reload --port 8003
 ```
 
-### Code Quality
+## License
 
-We use several tools to maintain code quality:
-- **Black**: Code formatting
-- **isort**: Import sorting
-- **Flake8**: Style guide enforcement
-- **MyPy**: Static type checking
-
-To run linting locally:
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run formatters
-black services/*/app services/*/tests
-isort services/*/app services/*/tests
-
-# Run linters
-flake8 services/*/app services/*/tests
-mypy services/*/app services/*/tests
-```
-
-## CI/CD
-
-We use GitHub Actions for continuous integration and deployment:
-
-### CI Workflow
-- Runs on pull requests and pushes to main
-- Tests each service independently
-- Builds Docker images
-- Reports test coverage to Codecov
-- Enforces code quality with linters
-
-### Workflow Status
-[![CI](https://github.com/<org>/<repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<org>/<repo>/actions/workflows/ci.yml)
-[![Lint](https://github.com/<org>/<repo>/actions/workflows/lint.yml/badge.svg)](https://github.com/<org>/<repo>/actions/workflows/lint.yml)
-
-## API Documentation
-
-Each service exposes its API documentation at `/docs` when running:
-- Content Service: http://localhost/content/docs
-- Auth Service: http://localhost/auth/docs
-- Assessment Service: http://localhost/assessment/docs
-- Notifier Service: http://localhost/notify/docs
-- Tutor Chat Service: http://localhost/chat/docs 
+MIT 
