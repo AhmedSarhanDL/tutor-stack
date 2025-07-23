@@ -1,4 +1,5 @@
 version: "3.9"
+
 services:
   traefik:
     image: traefik:v3.0
@@ -14,8 +15,15 @@ services:
       - "8080:8080"  # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
   content:
-    build: ./services/content
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+      args:
+        SERVICE_NAME: content
+    environment:
+      - PORT=8000
     expose:
       - "8000"
     labels:
@@ -26,9 +34,53 @@ services:
       - "traefik.http.services.content.loadbalancer.passHostHeader=true"
       - "traefik.http.middlewares.content-strip.stripprefix.prefixes=/content"
       - "traefik.http.routers.content.middlewares=content-strip"
-  tutor-chat:
-    build: ./services/tutor_chat
+
+  assessment:
+    build:
+      context: .
+      dockerfile: services/assessment/Dockerfile
+      args:
+        SERVICE_NAME: assessment
     environment:
+      - PORT=8000
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.assessment.rule=PathPrefix(`/assessment`)"
+      - "traefik.http.routers.assessment.entrypoints=web"
+      - "traefik.http.services.assessment.loadbalancer.server.port=8000"
+      - "traefik.http.services.assessment.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.assessment-strip.stripprefix.prefixes=/assessment"
+      - "traefik.http.routers.assessment.middlewares=assessment-strip"
+
+  notifier:
+    build:
+      context: .
+      dockerfile: services/notifier/Dockerfile
+      args:
+        SERVICE_NAME: notifier
+    environment:
+      - PORT=8000
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notifier.rule=PathPrefix(`/notify`)"
+      - "traefik.http.routers.notifier.entrypoints=web"
+      - "traefik.http.services.notifier.loadbalancer.server.port=8000"
+      - "traefik.http.services.notifier.loadbalancer.passHostHeader=true"
+      - "traefik.http.middlewares.notifier-strip.stripprefix.prefixes=/notify"
+      - "traefik.http.routers.notifier.middlewares=notifier-strip"
+
+  tutor-chat:
+    build:
+      context: .
+      dockerfile: services/tutor_chat/Dockerfile
+      args:
+        SERVICE_NAME: tutor_chat
+    environment:
+      - PORT=8000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     expose:
       - "8000"
@@ -39,40 +91,4 @@ services:
       - "traefik.http.services.chat.loadbalancer.server.port=8000"
       - "traefik.http.services.chat.loadbalancer.passHostHeader=true"
       - "traefik.http.middlewares.chat-strip.stripprefix.prefixes=/chat"
-      - "traefik.http.routers.chat.middlewares=chat-strip"
-  auth:
-    build: ./services/auth
-    expose:
-      - "8000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
-      - "traefik.http.routers.auth.entrypoints=web"
-      - "traefik.http.services.auth.loadbalancer.server.port=8000"
-      - "traefik.http.services.auth.loadbalancer.passHostHeader=true"
-      - "traefik.http.middlewares.auth-strip.stripprefix.prefixes=/auth"
-      - "traefik.http.routers.auth.middlewares=auth-strip"
-  assessment:
-    build: ./services/assessment
-    expose:
-      - "8000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.assess.rule=PathPrefix(`/assessment`)"
-      - "traefik.http.routers.assess.entrypoints=web"
-      - "traefik.http.services.assess.loadbalancer.server.port=8000"
-      - "traefik.http.services.assess.loadbalancer.passHostHeader=true"
-      - "traefik.http.middlewares.assess-strip.stripprefix.prefixes=/assessment"
-      - "traefik.http.routers.assess.middlewares=assess-strip"
-  notifier:
-    build: ./services/notifier
-    expose:
-      - "8000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.notify.rule=PathPrefix(`/notify`)"
-      - "traefik.http.routers.notify.entrypoints=web"
-      - "traefik.http.services.notify.loadbalancer.server.port=8000"
-      - "traefik.http.services.notify.loadbalancer.passHostHeader=true"
-      - "traefik.http.middlewares.notify-strip.stripprefix.prefixes=/notify"
-      - "traefik.http.routers.notify.middlewares=notify-strip" 
+      - "traefik.http.routers.chat.middlewares=chat-strip" 
