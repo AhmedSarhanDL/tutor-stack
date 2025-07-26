@@ -12,10 +12,14 @@ authors = [
     { name = "Ahmed Sarhan", email = "ahmed.sarhan@example.com" }
 ]
 dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pyjwt[crypto]==2.10.1",
     "tutor-stack-content @ git+https://github.com/AhmedSarhanDL/tutor-stack-content.git",
     "tutor-stack-assessment @ git+https://github.com/AhmedSarhanDL/tutor-stack-assessment.git",
     "tutor-stack-notifier @ git+https://github.com/AhmedSarhanDL/tutor-stack-notifier.git",
-    "tutor-stack-chat @ git+https://github.com/AhmedSarhanDL/tutor-stack-tutor_chat.git"
+    "tutor-stack-chat @ git+https://github.com/AhmedSarhanDL/tutor-stack-tutor_chat.git",
+    "tutor-stack-auth @ git+https://github.com/AhmedSarhanDL/tutor-stack-auth.git"
 ]
 
 [project.optional-dependencies]
