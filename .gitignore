@@ -64,3 +64,6 @@ coverage.xml
 # Services are standalone projects (exclude from main repo)
 services/*
 !services/.gitkeep
+
+# Ignore keys directory
+keys/
