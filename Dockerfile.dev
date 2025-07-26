@@ -1,0 +1,37 @@
+FROM python:3.11-slim
+
+# Install git for pip git dependencies
+RUN apt-get update && \
+    apt-get install -y git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy the main application file and services directory
+COPY main.py .
+COPY services/ ./services/
+COPY tutor_stack_core/ ./tutor_stack_core/
+COPY pyproject.toml .
+
+# Install FastAPI and uvicorn
+RUN pip install --no-cache-dir fastapi uvicorn PyJWT
+
+# Install core package
+RUN pip install --no-cache-dir -e ./tutor_stack_core
+
+# Install auth service dependencies
+RUN pip install --no-cache-dir fastapi-users[sqlalchemy,oauth]==12.1.3 httpx-oauth==0.13.0 python-jose[cryptography]==3.3.0 asyncpg==0.29.0 sqlalchemy[asyncio]==2.0.27 alembic==1.13.1
+
+# Install services in development mode
+RUN pip install --no-cache-dir -e ./services/content
+RUN pip install --no-cache-dir -e ./services/assessment
+RUN pip install --no-cache-dir -e ./services/notifier
+RUN pip install --no-cache-dir -e ./services/tutor_chat
+
+# Expose the port
+EXPOSE 8000
+
+# Run the application
+CMD ["python", "main.py"] 

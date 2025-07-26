@@ -9,9 +9,22 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Install services directly from git
+# Copy the main application file and services directory
+COPY main.py .
+COPY services/ ./services/
+
+# Install services directly from git (for production)
+# Comment out for development to use local services
 RUN pip install --no-cache-dir \
     "tutor-stack-content @ git+https://github.com/AhmedSarhanDL/tutor-stack-content.git" \
     "tutor-stack-assessment @ git+https://github.com/AhmedSarhanDL/tutor-stack-assessment.git" \
     "tutor-stack-notifier @ git+https://github.com/AhmedSarhanDL/tutor-stack-notifier.git" \
-    "tutor-stack-chat @ git+https://github.com/AhmedSarhanDL/tutor-stack-tutor_chat.git" 
+    "tutor-stack-chat @ git+https://github.com/AhmedSarhanDL/tutor-stack-tutor_chat.git" \
+    "tutor-stack-auth @ git+https://github.com/AhmedSarhanDL/tutor-stack-auth.git" \
+    fastapi uvicorn
+
+# Expose the port
+EXPOSE 8000
+
+# Run the application
+CMD ["python", "main.py"] 
