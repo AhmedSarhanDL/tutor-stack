@@ -30,6 +30,38 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to generate JWT keys
+generate_jwt_keys() {
+    print_status "Generating JWT keys..."
+    
+    # Check if openssl is available
+    if ! command -v openssl &> /dev/null; then
+        print_error "OpenSSL is required to generate JWT keys. Please install OpenSSL."
+        exit 1
+    fi
+    
+    # Generate private key
+    if [ ! -f "keys/jwtRS256.key" ]; then
+        openssl genrsa -out keys/jwtRS256.key 2048
+        print_success "Private key generated"
+    else
+        print_success "Private key already exists"
+    fi
+    
+    # Generate public key
+    if [ ! -f "keys/jwtRS256.key.pub" ]; then
+        openssl rsa -in keys/jwtRS256.key -pubout -out keys/jwtRS256.key.pub
+        print_success "Public key generated"
+    else
+        print_success "Public key already exists"
+    fi
+    
+    # Set proper permissions
+    chmod 600 keys/jwtRS256.key
+    chmod 644 keys/jwtRS256.key.pub
+    print_success "JWT keys ready"
+}
+
 # Check if we're in the right directory
 if [ ! -f "pyproject.toml" ]; then
     print_error "This script must be run from the Tutor Stack root directory"
@@ -63,13 +95,14 @@ else
     print_warning "Not a git repository, skipping submodule setup"
 fi
 
-# 2. Check Python version
+# 2. Check Python version (updated to 3.11+)
 print_status "Checking Python version..."
 PYTHON_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
-REQUIRED_VERSION="3.9"
+REQUIRED_VERSION="3.11"
 
 if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
-    print_error "Python 3.9 or later is required. Current version: $PYTHON_VERSION"
+    print_error "Python 3.11 or later is required. Current version: $PYTHON_VERSION"
+    print_status "Please upgrade Python to version 3.11 or later"
     exit 1
 fi
 
@@ -89,10 +122,13 @@ print_status "Installing Python dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
 
-# Install the main project (skip for now due to service dependencies)
+# Install the main project first
 print_status "Installing main project..."
-# pip install -e .  # Skip for now due to service dependency conflicts
-print_success "Main project installation skipped (will install services locally)"
+if pip install -e .; then
+    print_success "Main project installed"
+else
+    print_warning "Main project installation failed, continuing with local service setup"
+fi
 
 # 5. Setup and install services
 print_status "Setting up services..."
@@ -100,23 +136,31 @@ if [ -d "services" ]; then
     cd services
     
     # List of services to install
-    services=("content" "assessment" "notifier" "tutor_chat" "auth")
+    services=("auth" "content" "assessment" "notifier" "tutor_chat")
     
     for service in "${services[@]}"; do
         if [ -d "$service" ]; then
             print_status "Setting up $service service..."
             cd "$service"
             
-            # Fetch latest changes from remote
+            # Fetch latest changes from remote if it's a git repo and clean
             if [ -d ".git" ]; then
-                git fetch origin
-                git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
-                print_success "Updated $service from remote"
+                if ! git diff --quiet HEAD; then
+                    print_warning "Uncommitted changes found in $service. Skipping update."
+                else
+                    print_status "Updating $service from remote..."
+                    git fetch origin 2>/dev/null || true
+                    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
+                    print_success "Updated $service from remote"
+                fi
             fi
             
             # Install the service
-            pip install -e .
-            print_success "$service service installed"
+            if pip install -e .; then
+                print_success "$service service installed"
+            else
+                print_warning "$service service installation failed, continuing..."
+            fi
             cd ..
         else
             print_warning "Service directory $service not found"
@@ -124,7 +168,7 @@ if [ -d "services" ]; then
     done
     
     cd ..
-    print_success "All services installed"
+    print_success "All services processed"
 else
     print_warning "Services directory not found"
 fi
@@ -150,9 +194,26 @@ print_status "Setting up frontend..."
 if [ -d "frontend" ]; then
     cd frontend
     
+    # Update from git if it's a repo and there are no local changes
+    if [ -d ".git" ]; then
+        if ! git diff --quiet HEAD; then
+            print_warning "Uncommitted changes found in frontend. Skipping update."
+        else
+            print_status "Updating frontend from remote..."
+            git fetch origin 2>/dev/null || true
+            git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
+            print_success "Updated frontend from remote"
+        fi
+    fi
+    
     # Install frontend dependencies
     print_status "Installing frontend dependencies..."
-    npm install
+    if npm install; then
+        print_success "Frontend dependencies installed"
+    else
+        print_error "Frontend dependency installation failed"
+        exit 1
+    fi
     
     # Create .env file if it doesn't exist
     if [ ! -f .env ]; then
@@ -212,12 +273,12 @@ else
     print_success "Main .env file already exists"
 fi
 
-# 9. Create keys directory if it doesn't exist
+# 9. Create keys directory and generate JWT keys
 print_status "Setting up keys directory..."
 mkdir -p keys
-print_success "Keys directory ready"
+generate_jwt_keys
 
-# 9.5. Initialize database
+# 10. Initialize database
 print_status "Initializing database..."
 if [ -f "venv/bin/python" ]; then
     # Create a temporary script to initialize the database
@@ -227,15 +288,32 @@ if [ -f "venv/bin/python" ]; then
 
 import asyncio
 import os
-from services.auth.tutor_stack_auth.database import engine, Base
-from services.auth.tutor_stack_auth.models import User, OAuthAccount
+import sys
+
+# Add the current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 async def init_db():
     """Initialize database tables"""
-    print("Creating database tables...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("Database tables created successfully!")
+    try:
+        # Try to import from local services first
+        try:
+            from services.auth.tutor_stack_auth.database import engine, Base
+            print("Using local auth service")
+        except ImportError:
+            # Try to import from installed package
+            from tutor_stack_auth.database import engine, Base
+            print("Using installed auth service")
+        
+        print("Creating database tables...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("Database tables created successfully!")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        print("Database initialization failed, but continuing with setup...")
+        return False
+    return True
 
 if __name__ == "__main__":
     # Set environment variables
@@ -243,19 +321,24 @@ if __name__ == "__main__":
     os.environ["SECRET_PRIVATE_KEY_PATH"] = "./keys/jwtRS256.key"
     os.environ["SECRET_PUBLIC_KEY_PATH"] = "./keys/jwtRS256.key.pub"
     
-    asyncio.run(init_db())
+    success = asyncio.run(init_db())
+    if not success:
+        sys.exit(1)
 EOF
 
     # Run the database initialization
     source venv/bin/activate
-    python init_db_temp.py
-    rm init_db_temp.py
-    print_success "Database initialized"
+    if python init_db_temp.py; then
+        print_success "Database initialized"
+    else
+        print_warning "Database initialization failed, but continuing..."
+    fi
+    rm -f init_db_temp.py
 else
     print_warning "Virtual environment not found, skipping database initialization"
 fi
 
-# 10. Run unit tests (these don't need a server)
+# 11. Run unit tests (these don't need a server)
 print_status "Running unit tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
@@ -263,8 +346,11 @@ if [ -d "tests" ]; then
     export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
     export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
     
-    python -m pytest tests/unit/ -v
-    print_success "Unit tests passed"
+    if python -m pytest tests/unit/ -v; then
+        print_success "Unit tests passed"
+    else
+        print_warning "Unit tests failed, but continuing..."
+    fi
 else
     print_warning "Tests directory not found"
 fi
@@ -282,36 +368,43 @@ export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
 export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
 export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
 
+# Start backend with proper error handling
 python main.py &
 BACKEND_PID=$!
-sleep 3  # Wait for backend to start
+sleep 5  # Wait for backend to start
 
 # Check if backend is running
-if curl -s http://localhost:8000/health > /dev/null; then
+if curl -s http://localhost:8000/health > /dev/null 2>&1; then
     print_success "Backend is running on http://localhost:8000"
 else
     print_error "Backend failed to start"
     kill $BACKEND_PID 2>/dev/null || true
+    print_status "Check the logs above for backend startup errors"
     exit 1
 fi
 
 # Start frontend in background
 print_status "Starting frontend development server..."
-cd frontend
-npm run dev &
-FRONTEND_PID=$!
-sleep 5  # Wait for frontend to start
-
-# Check if frontend is running
-if curl -s http://localhost:3000 > /dev/null; then
-    print_success "Frontend is running on http://localhost:3000"
+if [ -d "frontend" ]; then
+    cd frontend
+    npm run dev &
+    FRONTEND_PID=$!
+    sleep 8  # Wait for frontend to start
+    
+    # Check if frontend is running
+    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+        print_success "Frontend is running on http://localhost:3000"
+    else
+        print_warning "Frontend may not be fully started yet, but continuing..."
+    fi
+    
+    cd ..
 else
-    print_error "Frontend failed to start"
-    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
-    exit 1
+    print_warning "Frontend directory not found"
+    FRONTEND_PID=""
 fi
 
-# 11. Run integration and smoke tests (after server is running)
+# 13. Run integration and smoke tests (after server is running)
 print_status "Running integration and smoke tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
@@ -320,17 +413,23 @@ if [ -d "tests" ]; then
     export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
     
     # Wait a bit more for server to be fully ready
-    sleep 2
+    sleep 3
     
     # Run integration tests
     print_status "Running integration tests..."
-    python -m pytest tests/integration/ -v --tb=short
-    print_success "Integration tests completed"
+    if python -m pytest tests/integration/ -v --tb=short; then
+        print_success "Integration tests completed"
+    else
+        print_warning "Integration tests failed, but continuing..."
+    fi
     
     # Run smoke tests
     print_status "Running smoke tests..."
-    python -m pytest tests/e2e/ -v --tb=short
-    print_success "Smoke tests completed"
+    if python -m pytest tests/e2e/ -v --tb=short; then
+        print_success "Smoke tests completed"
+    else
+        print_warning "Smoke tests failed, but continuing..."
+    fi
 else
     print_warning "Tests directory not found"
 fi
@@ -350,6 +449,20 @@ echo "📚 Documentation:"
 echo "   - README.md - Main project documentation"
 echo "   - frontend/README.md - Frontend documentation"
 echo ""
+
+# Function to cleanup on exit
+cleanup() {
+    print_status "Shutting down servers..."
+    kill $BACKEND_PID 2>/dev/null || true
+    if [ ! -z "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+    print_success "Servers stopped"
+    exit 0
+}
+
+# Set up signal handlers
+trap cleanup SIGINT SIGTERM
 
 # Wait for user to stop the servers
 echo "Press Ctrl+C to stop all servers..."

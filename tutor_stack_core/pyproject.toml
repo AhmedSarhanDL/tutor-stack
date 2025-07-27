@@ -12,8 +12,8 @@ authors = [
     { name = "Ahmed Sarhan", email = "ahmed.sarhan@example.com" }
 ]
 dependencies = [
-    "fastapi==0.110.0",
-    "pyjwt[crypto]==2.7.0"
+    "fastapi>=0.104.0",
+    "pyjwt[crypto]==2.8.0"
 ]
 
 [project.optional-dependencies]
