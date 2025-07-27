@@ -159,7 +159,7 @@ if [ -d "frontend" ]; then
         print_status "Creating frontend .env file..."
         cat > .env << EOF
 # API Configuration
-VITE_API_BASE_URL=http://api.tutor-stack.local
+VITE_API_BASE_URL=http://localhost:8000
 
 # Google OAuth (optional)
 VITE_GOOGLE_CLIENT_ID=
@@ -182,19 +182,23 @@ fi
 print_status "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
-# Database Configuration
-DATABASE_URL=sqlite:///./tutor_stack.db
+# Database Configuration (SQLite for development)
+DATABASE_URL=sqlite+aiosqlite:///./tutor_auth.db
 
 # Security
-SECRET_KEY=your-secret-key-here-change-in-production
-JWT_SECRET_KEY=your-jwt-secret-key-here-change-in-production
+SECRET_KEY=dev-secret-key-change-in-production
+JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
+
+# JWT Key Paths
+SECRET_PRIVATE_KEY_PATH=./keys/jwtRS256.key
+SECRET_PUBLIC_KEY_PATH=./keys/jwtRS256.key.pub
 
 # API Configuration
 API_HOST=0.0.0.0
 API_PORT=8000
 
 # CORS Configuration
-CORS_ORIGINS=["http://localhost:3000", "http://app.tutor-stack.local"]
+CORS_ORIGINS=["http://localhost:3000"]
 
 # Google OAuth (optional)
 GOOGLE_CLIENT_ID=
@@ -213,34 +217,140 @@ print_status "Setting up keys directory..."
 mkdir -p keys
 print_success "Keys directory ready"
 
-# 10. Run tests to verify setup
-print_status "Running tests to verify setup..."
+# 9.5. Initialize database
+print_status "Initializing database..."
+if [ -f "venv/bin/python" ]; then
+    # Create a temporary script to initialize the database
+    cat > init_db_temp.py << 'EOF'
+#!/usr/bin/env python3
+"""Initialize the database tables for the auth service"""
+
+import asyncio
+import os
+from services.auth.tutor_stack_auth.database import engine, Base
+from services.auth.tutor_stack_auth.models import User, OAuthAccount
+
+async def init_db():
+    """Initialize database tables"""
+    print("Creating database tables...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("Database tables created successfully!")
+
+if __name__ == "__main__":
+    # Set environment variables
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./tutor_auth.db"
+    os.environ["SECRET_PRIVATE_KEY_PATH"] = "./keys/jwtRS256.key"
+    os.environ["SECRET_PUBLIC_KEY_PATH"] = "./keys/jwtRS256.key.pub"
+    
+    asyncio.run(init_db())
+EOF
+
+    # Run the database initialization
+    source venv/bin/activate
+    python init_db_temp.py
+    rm init_db_temp.py
+    print_success "Database initialized"
+else
+    print_warning "Virtual environment not found, skipping database initialization"
+fi
+
+# 10. Run unit tests (these don't need a server)
+print_status "Running unit tests..."
 if [ -d "tests" ]; then
+    # Set environment variables for testing
+    export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
+    export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
+    export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
+    
     python -m pytest tests/unit/ -v
     print_success "Unit tests passed"
 else
     print_warning "Tests directory not found"
 fi
 
-print_success "🎉 Tutor Stack setup complete!"
+# 12. Start the full project
+print_status "🚀 Starting Tutor Stack full project..."
 echo ""
-echo "📋 Next steps:"
+
+# Start backend in background
+print_status "Starting backend server..."
+cd "$(dirname "$0")"  # Ensure we're in the root directory
+
+# Set environment variables for the server
+export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
+export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
+export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
+
+python main.py &
+BACKEND_PID=$!
+sleep 3  # Wait for backend to start
+
+# Check if backend is running
+if curl -s http://localhost:8000/health > /dev/null; then
+    print_success "Backend is running on http://localhost:8000"
+else
+    print_error "Backend failed to start"
+    kill $BACKEND_PID 2>/dev/null || true
+    exit 1
+fi
+
+# Start frontend in background
+print_status "Starting frontend development server..."
+cd frontend
+npm run dev &
+FRONTEND_PID=$!
+sleep 5  # Wait for frontend to start
+
+# Check if frontend is running
+if curl -s http://localhost:3000 > /dev/null; then
+    print_success "Frontend is running on http://localhost:3000"
+else
+    print_error "Frontend failed to start"
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    exit 1
+fi
+
+# 11. Run integration and smoke tests (after server is running)
+print_status "Running integration and smoke tests..."
+if [ -d "tests" ]; then
+    # Set environment variables for testing
+    export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
+    export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
+    export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
+    
+    # Wait a bit more for server to be fully ready
+    sleep 2
+    
+    # Run integration tests
+    print_status "Running integration tests..."
+    python -m pytest tests/integration/ -v --tb=short
+    print_success "Integration tests completed"
+    
+    # Run smoke tests
+    print_status "Running smoke tests..."
+    python -m pytest tests/e2e/ -v --tb=short
+    print_success "Smoke tests completed"
+else
+    print_warning "Tests directory not found"
+fi
+
+print_success "🎉 Tutor Stack is now running!"
 echo ""
-echo "  1. Start the development server:"
-echo "     python main.py"
+echo "🌐 Access your application:"
+echo "   - Frontend: http://localhost:3000"
+echo "   - Backend API: http://localhost:8000"
+echo "   - API Documentation: http://localhost:8000/docs"
 echo ""
-echo "  2. Start the frontend development server:"
-echo "     cd frontend && npm run dev"
-echo ""
-echo "  3. Or use Docker for full stack:"
-echo "     docker-compose -f docker-compose.dev.yaml up"
-echo ""
-echo "  4. Access URLs:"
-echo "     - Backend API: http://localhost:8000"
-echo "     - Frontend: http://localhost:3000"
-echo "     - Docker: http://app.tutor-stack.local"
+echo "🛑 To stop the servers:"
+echo "   - Press Ctrl+C in this terminal"
+echo "   - Or run: pkill -f 'python main.py' && pkill -f 'vite'"
 echo ""
 echo "📚 Documentation:"
 echo "   - README.md - Main project documentation"
 echo "   - frontend/README.md - Frontend documentation"
-echo "" 
+echo ""
+
+# Wait for user to stop the servers
+echo "Press Ctrl+C to stop all servers..."
+wait 

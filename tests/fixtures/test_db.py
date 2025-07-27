@@ -22,8 +22,8 @@ async def test_database():
             result = await conn.execute(text("SELECT 1"))
             print("✓ Database connection successful")
             
-            # Check if tables exist
-            result = await conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"))
+            # Check if tables exist (SQLite compatible)
+            result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
             tables = result.fetchall()
             print(f"✓ Tables found: {[table[0] for table in tables]}")
             
