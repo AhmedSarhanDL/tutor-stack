@@ -38,6 +38,14 @@ fi
 
 print_status "Starting Tutor Stack setup..."
 
+# 0. Stop any running processes
+print_status "Stopping any running processes..."
+pkill -f "python main.py" 2>/dev/null || true
+pkill -f "vite" 2>/dev/null || true
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+print_success "Processes stopped"
+
 # 1. Initialize and update git submodules
 print_status "Setting up git submodules..."
 if [ -d ".git" ]; then
