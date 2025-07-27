@@ -65,5 +65,7 @@ coverage.xml
 services/*
 !services/.gitkeep
 
+# Frontend is now a git submodule - no need to exclude
+
 # Ignore keys directory
 keys/

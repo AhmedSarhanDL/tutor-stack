@@ -1,6 +1,6 @@
 # Tutor Stack Platform
 
-A comprehensive tutoring system that combines multiple services into a unified platform.
+A comprehensive tutoring system that combines multiple services into a unified platform with a modern React frontend.
 
 ## Services
 
@@ -9,6 +9,7 @@ A comprehensive tutoring system that combines multiple services into a unified p
 - **Notifier Service**: Handles notification delivery
 - **Tutor Chat Service**: Provides interactive tutoring using DSPy and OpenAI
 - **Auth Service**: Handles user authentication and authorization
+- **Frontend**: Modern React TypeScript application with Vite
 
 ## Architecture
 
@@ -16,23 +17,38 @@ This platform uses a unified approach where all services are installed as Python
 
 ## Installation
 
-### Development Setup
+### Quick Setup (Recommended)
 
-1. Clone the repository:
+Use the automated setup script for a complete installation:
+
 ```bash
-git clone https://github.com/AhmedSarhanDL/tutor-stack.git
+# Clone the repository with submodules
+git clone --recursive https://github.com/AhmedSarhanDL/tutor-stack.git
+cd tutor-stack
+
+# Run the setup script
+./setup.sh
+```
+
+This script will:
+- Initialize git submodules (including frontend)
+- Set up Python virtual environment
+- Install Python dependencies
+- Install frontend dependencies
+- Create necessary configuration files
+- Run tests to verify the setup
+
+### Manual Development Setup
+
+1. Clone the repository with submodules:
+```bash
+git clone --recursive https://github.com/AhmedSarhanDL/tutor-stack.git
 cd tutor-stack
 ```
 
-2. The services are automatically cloned as submodules. If not, clone them manually:
+2. If submodules weren't cloned, initialize them:
 ```bash
-cd services
-git clone https://github.com/AhmedSarhanDL/tutor-stack-content.git content
-git clone https://github.com/AhmedSarhanDL/tutor-stack-assessment.git assessment
-git clone https://github.com/AhmedSarhanDL/tutor-stack-notifier.git notifier
-git clone https://github.com/AhmedSarhanDL/tutor-stack-tutor_chat.git tutor_chat
-git clone https://github.com/AhmedSarhanDL/tutor-stack-auth.git auth
-cd ..
+git submodule update --init --recursive
 ```
 
 3. Create and activate a virtual environment:
@@ -55,6 +71,13 @@ pip install -e "./services/tutor_chat"
 pip install -e "./services/auth"
 ```
 
+6. Setup frontend:
+```bash
+cd frontend
+npm install
+cd ..
+```
+
 ### Production Installation
 
 For production, install the package without development dependencies:
@@ -69,9 +92,15 @@ pip install .
 tutor-stack/
 ├── main.py              # Main FastAPI application that combines all services
 ├── pyproject.toml       # Project configuration with service dependencies
+├── setup.sh             # Automated setup script
 ├── Dockerfile.base      # Docker configuration for production (uses Git packages)
 ├── Dockerfile.dev       # Docker configuration for development (uses local services)
 ├── docker-compose.yaml  # Docker Compose configuration
+├── frontend/            # React TypeScript frontend (git submodule)
+│   ├── src/             # React source code
+│   ├── public/          # Static assets
+│   ├── package.json     # Frontend dependencies
+│   └── README.md        # Frontend documentation
 ├── services/            # Local service repositories for development
 │   ├── content/         # Content service (cloned from Git)
 │   ├── assessment/      # Assessment service (cloned from Git)
@@ -84,6 +113,8 @@ tutor-stack/
 ## Running the Platform
 
 ### Local Development
+
+#### Backend API
 
 Run the unified platform locally:
 
@@ -99,6 +130,29 @@ The platform will be available at `http://localhost:8000` with the following end
 - `/notify` - Notifier service
 - `/chat` - Tutor chat service
 - `/auth` - Authentication service
+
+#### Frontend
+
+Start the frontend development server:
+
+```bash
+cd frontend
+npm run dev
+```
+
+The frontend will be available at `http://localhost:3000`
+
+#### Full Stack Development
+
+For full stack development, run both backend and frontend:
+
+```bash
+# Terminal 1: Backend
+python main.py
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
+```
 
 ### Using Docker (Development)
 
@@ -146,6 +200,15 @@ The platform automatically installs the following services from their Git reposi
 - `tutor-stack-notifier` - Notification service
 - `tutor-stack-chat` - Interactive tutoring service
 - `tutor-stack-auth` - Authentication and authorization service
+
+## Frontend Repository
+
+The frontend is maintained as a separate repository and included as a git submodule:
+
+- **Repository**: [tutor-stack-frontend](https://github.com/AhmedSarhanDL/tutor-stack-frontend)
+- **Technology**: React 19 + TypeScript + Vite
+- **Features**: Modern UI with authentication, dashboard, and API integration
+- **Documentation**: See `frontend/README.md` for detailed frontend documentation
 
 ## Development
 
