@@ -38,7 +38,7 @@ dev = [
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = []
+packages = ["tutor_stack_core"]
 
 [tool.black]
 line-length = 100

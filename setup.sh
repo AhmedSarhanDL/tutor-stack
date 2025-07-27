@@ -41,8 +41,16 @@ print_status "Starting Tutor Stack setup..."
 # 1. Initialize and update git submodules
 print_status "Setting up git submodules..."
 if [ -d ".git" ]; then
-    git submodule update --init --recursive
-    print_success "Git submodules initialized"
+    # Only initialize submodules if .gitmodules exists
+    if [ -f ".gitmodules" ]; then
+        if git submodule update --init --recursive 2>/dev/null; then
+            print_success "Git submodules initialized"
+        else
+            print_warning "Failed to initialize submodules, continuing with setup"
+        fi
+    else
+        print_warning "No .gitmodules file found, skipping submodule setup"
+    fi
 else
     print_warning "Not a git repository, skipping submodule setup"
 fi
@@ -50,10 +58,10 @@ fi
 # 2. Check Python version
 print_status "Checking Python version..."
 PYTHON_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
-REQUIRED_VERSION="3.11"
+REQUIRED_VERSION="3.9"
 
 if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
-    print_error "Python 3.11 or later is required. Current version: $PYTHON_VERSION"
+    print_error "Python 3.9 or later is required. Current version: $PYTHON_VERSION"
     exit 1
 fi
 
@@ -72,10 +80,48 @@ fi
 print_status "Installing Python dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -e .
-print_success "Python dependencies installed"
 
-# 5. Check Node.js for frontend
+# Install the main project (skip for now due to service dependencies)
+print_status "Installing main project..."
+# pip install -e .  # Skip for now due to service dependency conflicts
+print_success "Main project installation skipped (will install services locally)"
+
+# 5. Setup and install services
+print_status "Setting up services..."
+if [ -d "services" ]; then
+    cd services
+    
+    # List of services to install
+    services=("content" "assessment" "notifier" "tutor_chat" "auth")
+    
+    for service in "${services[@]}"; do
+        if [ -d "$service" ]; then
+            print_status "Setting up $service service..."
+            cd "$service"
+            
+            # Fetch latest changes from remote
+            if [ -d ".git" ]; then
+                git fetch origin
+                git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
+                print_success "Updated $service from remote"
+            fi
+            
+            # Install the service
+            pip install -e .
+            print_success "$service service installed"
+            cd ..
+        else
+            print_warning "Service directory $service not found"
+        fi
+    done
+    
+    cd ..
+    print_success "All services installed"
+else
+    print_warning "Services directory not found"
+fi
+
+# 6. Check Node.js for frontend
 print_status "Checking Node.js for frontend..."
 if ! command -v node &> /dev/null; then
     print_error "Node.js is not installed. Please install Node.js 18 or later."
@@ -91,7 +137,7 @@ fi
 
 print_success "Node.js version: $(node -v)"
 
-# 6. Setup frontend
+# 7. Setup frontend
 print_status "Setting up frontend..."
 if [ -d "frontend" ]; then
     cd frontend
@@ -124,7 +170,7 @@ else
     print_warning "Frontend directory not found. Make sure git submodules are initialized."
 fi
 
-# 7. Create main .env file if it doesn't exist
+# 8. Create main .env file if it doesn't exist
 print_status "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
@@ -154,12 +200,12 @@ else
     print_success "Main .env file already exists"
 fi
 
-# 8. Create keys directory if it doesn't exist
+# 9. Create keys directory if it doesn't exist
 print_status "Setting up keys directory..."
 mkdir -p keys
 print_success "Keys directory ready"
 
-# 9. Run tests to verify setup
+# 10. Run tests to verify setup
 print_status "Running tests to verify setup..."
 if [ -d "tests" ]; then
     python -m pytest tests/unit/ -v

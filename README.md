@@ -34,6 +34,7 @@ This script will:
 - Initialize git submodules (including frontend)
 - Set up Python virtual environment
 - Install Python dependencies
+- Fetch and install all services from their git repositories
 - Install frontend dependencies
 - Create necessary configuration files
 - Run tests to verify the setup
