@@ -88,12 +88,12 @@ print_status "Setting up subprojects..."
 
 # Define the repositories to clone
 declare -A repositories=(
-    ["services/auth"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
-    ["services/content"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-content.git"
-    ["services/assessment"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
-    ["services/notifier"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
-    ["services/tutor_chat"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-tutor-chat.git"
-    ["frontend"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
+    ["services/auth"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
+    ["services/content"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-content.git"
+    ["services/assessment"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
+    ["services/notifier"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
+    ["services/tutor_chat"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-tutor-chat.git"
+    ["frontend"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
 )
 
 # Function to clone or update repository
