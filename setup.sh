@@ -6,10 +6,9 @@ set -e  # Exit on any error
 
 echo "🚀 Setting up Tutor Stack Full Project..."
 
-# Configuration - Update these URLs to match your actual repositories
-# You can also set these as environment variables
-GITHUB_ORG=${GITHUB_ORG:-"your-org"}
-REPO_PREFIX=${REPO_PREFIX:-"tutor-stack"}
+# Configuration - This is a monorepo, so we don't need to clone separate repos
+GITHUB_ORG=${GITHUB_ORG:-"AhmedSarhanDL"}
+REPO_NAME=${REPO_NAME:-"tutor-stack"}
 
 # Colors for output
 RED='\033[0;31m'
@@ -83,60 +82,13 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 print_success "Processes stopped"
 
-# 1. Clone or update subprojects
-print_status "Setting up subprojects..."
-
-# Define the repositories to clone
-declare -A repositories=(
-    ["services/auth"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
-    ["services/content"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-content.git"
-    ["services/assessment"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
-    ["services/notifier"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
-    ["services/tutor_chat"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-tutor-chat.git"
-    ["frontend"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
-)
-
-# Function to clone or update repository
-clone_or_update_repo() {
-    local path=$1
-    local repo_url=$2
-    
-    print_status "Setting up $path..."
-    
-    if [ -d "$path" ]; then
-        print_status "Removing existing $path directory..."
-        rm -rf "$path"
-    fi
-    
-    # Create parent directory if it doesn't exist
-    local parent_dir=$(dirname "$path")
-    if [ ! -d "$parent_dir" ]; then
-        mkdir -p "$parent_dir"
-    fi
-    
-    # Clone the repository
-    print_status "Cloning $repo_url to $path..."
-    if git clone "$repo_url" "$path" 2>/dev/null; then
-        print_success "$path cloned successfully"
-    else
-        print_error "Failed to clone $path from $repo_url"
-        print_status "Please check the repository URL and your git access"
-        return 1
-    fi
-}
-
-# Clone/update all repositories
-print_status "Cloning repositories from GitHub organization: ${GITHUB_ORG}"
-print_status "Repository prefix: ${REPO_PREFIX}"
-
-for path in "${!repositories[@]}"; do
-    clone_or_update_repo "$path" "${repositories[$path]}"
-done
-
-# Small delay to ensure all files are properly written
-sleep 2
-
-print_success "All subprojects updated"
+# 1. Update the current repository to get latest changes
+print_status "Updating repository to latest changes..."
+if git pull origin main 2>/dev/null || git pull origin master 2>/dev/null; then
+    print_success "Repository updated to latest changes"
+else
+    print_warning "Could not pull latest changes, continuing with current state"
+fi
 
 # 2. Check Python version (updated to 3.11+)
 print_status "Checking Python version..."
@@ -184,7 +136,7 @@ else
     print_warning "pyproject.toml not found, skipping core dependency installation"
 fi
 
-# 5. Setup and install services
+# 5. Setup and install services (if they exist in the monorepo)
 print_status "Setting up services..."
 if [ -d "services" ]; then
     cd services
