@@ -6,7 +6,8 @@ set -e  # Exit on any error
 
 echo "🚀 Setting up Tutor Stack Full Project..."
 
-# Configuration - These are the actual repositories to clone
+# Configuration - Update these URLs to match your actual repositories
+# You can also set these as environment variables
 GITHUB_ORG=${GITHUB_ORG:-"AhmedSarhanDL"}
 REPO_PREFIX=${REPO_PREFIX:-"tutor-stack"}
 
@@ -147,7 +148,7 @@ sleep 2
 
 print_success "All subprojects updated"
 
-# 3. Check Python version (updated to 3.11+)
+# 2. Check Python version (updated to 3.11+)
 print_status "Checking Python version..."
 PYTHON_VERSION=$(python3.11 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 REQUIRED_VERSION="3.11"
@@ -160,7 +161,7 @@ fi
 
 print_success "Python version: $PYTHON_VERSION"
 
-# 4. Create virtual environment
+# 3. Create virtual environment
 print_status "Setting up Python virtual environment..."
 if [ ! -d "venv" ]; then
     python3.11 -m venv venv
@@ -169,7 +170,7 @@ else
     print_success "Virtual environment already exists"
 fi
 
-# 5. Activate virtual environment and install Python dependencies
+# 4. Activate virtual environment and install Python dependencies
 print_status "Installing Python dependencies..."
 source venv/bin/activate
 
@@ -193,7 +194,7 @@ else
     print_warning "pyproject.toml not found, skipping core dependency installation"
 fi
 
-# 6. Setup and install services
+# 5. Setup and install services
 print_status "Setting up services..."
 if [ -d "services" ]; then
     cd services
@@ -243,7 +244,7 @@ else
     print_warning "Main project has no pyproject.toml, skipping installation"
 fi
 
-# 7. Check Node.js for frontend
+# 6. Check Node.js for frontend
 print_status "Checking Node.js for frontend..."
 if ! command -v node &> /dev/null; then
     print_error "Node.js is not installed. Please install Node.js 18 or later."
@@ -259,7 +260,7 @@ fi
 
 print_success "Node.js version: $(node -v)"
 
-# 8. Setup frontend
+# 7. Setup frontend
 print_status "Setting up frontend..."
 if [ -d "frontend" ]; then
     cd frontend
@@ -297,7 +298,7 @@ else
     print_warning "Frontend directory not found"
 fi
 
-# 9. Create main .env file if it doesn't exist
+# 8. Create main .env file if it doesn't exist
 print_status "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
@@ -331,12 +332,12 @@ else
     print_success "Main .env file already exists"
 fi
 
-# 10. Create keys directory and generate JWT keys
+# 9. Create keys directory and generate JWT keys
 print_status "Setting up keys directory..."
 mkdir -p keys
 generate_jwt_keys
 
-# 11. Initialize database
+# 10. Initialize database
 print_status "Initializing database..."
 if [ -f "venv/bin/python" ]; then
     # Create a temporary script to initialize the database
@@ -396,7 +397,7 @@ else
     print_warning "Virtual environment not found, skipping database initialization"
 fi
 
-# 12. Run unit tests (these don't need a server)
+# 11. Run unit tests (these don't need a server)
 print_status "Running unit tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
@@ -413,7 +414,7 @@ else
     print_warning "Tests directory not found"
 fi
 
-# 13. Start the full project
+# 12. Start the full project
 print_status "🚀 Starting Tutor Stack full project..."
 echo ""
 
@@ -462,7 +463,7 @@ else
     FRONTEND_PID=""
 fi
 
-# 14. Run integration and smoke tests (after server is running)
+# 13. Run integration and smoke tests (after server is running)
 print_status "Running integration and smoke tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
