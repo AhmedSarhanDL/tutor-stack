@@ -14,9 +14,13 @@ authors = [
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
-    "pyjwt[crypto]==2.8.0"
-    # Local service dependencies are installed separately in setup.sh
-    # to avoid file:// URI issues on different platforms
+    "pyjwt[crypto]==2.8.0",
+    # Local service dependencies - using local paths instead of git
+    "tutor-stack-content @ file://./services/content",
+    "tutor-stack-assessment @ file://./services/assessment",
+    "tutor-stack-notifier @ file://./services/notifier",
+    "tutor-stack-chat @ file://./services/tutor_chat",
+    "tutor-stack-auth @ file://./services/auth"
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,34 @@
+# Cursor Rules for Tutor Stack Project
+
+## Python Virtual Environment
+- Always activate the Python virtual environment before running Python commands
+- Use `source venv/bin/activate` to activate the virtual environment
+- For terminal commands that involve Python, ensure the venv is activated first
+- When running tests, make sure to use the virtual environment's Python interpreter
+
+## Project Structure
+- This is a Python project using Python 3.11
+- The project uses a virtual environment located in `venv/`
+- Use `python` from the virtual environment, not system Python
+- For package management, use `pip` from the virtual environment
+
+## Development Guidelines
+- Always run Python commands with the virtual environment activated
+- Use `python -m pytest` for running tests
+- Use `python main.py` for running the main application
+- Install packages using `pip install` within the activated environment
+
+## Command Examples
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run tests
+python -m pytest
+
+# Run main application
+python main.py
+
+# Install packages
+pip install package_name
+``` 
