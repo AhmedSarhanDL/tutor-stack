@@ -84,10 +84,10 @@ print_success "Processes stopped"
 
 # 1. Update the main repository
 print_status "Updating main repository to latest changes..."
-if git pull origin main 2>/dev/null || git pull origin master 2>/dev/null; then
+if git pull origin main; then
     print_success "Main repository updated to latest changes"
 else
-    print_warning "Could not pull latest changes, continuing with current state"
+    print_warning "Could not pull latest changes from main branch, continuing with current state"
 fi
 
 # 2. Clone or update subprojects
@@ -103,13 +103,14 @@ declare -A repositories=(
     ["frontend"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
 )
 
-# Function to clone or update repository
-clone_or_update_repo() {
+# Function to clone repository (always fresh)
+clone_repo() {
     local path=$1
     local repo_url=$2
     
     print_status "Setting up $path..."
     
+    # Always remove existing directory to ensure fresh clone
     if [ -d "$path" ]; then
         print_status "Removing existing $path directory to get fresh copy..."
         rm -rf "$path"
@@ -121,8 +122,8 @@ clone_or_update_repo() {
         mkdir -p "$parent_dir"
     fi
     
-    # Clone the repository
-    print_status "Cloning $repo_url to $path..."
+    # Clone the repository fresh
+    print_status "Cloning fresh copy from $repo_url to $path..."
     if git clone "$repo_url" "$path" 2>/dev/null; then
         print_success "$path cloned successfully"
     else
@@ -133,12 +134,12 @@ clone_or_update_repo() {
     fi
 }
 
-# Clone/update all repositories
+# Clone all repositories fresh
 print_status "Cloning repositories from GitHub organization: ${GITHUB_ORG}"
 print_status "Repository prefix: ${REPO_PREFIX}"
 
 for path in "${!repositories[@]}"; do
-    clone_or_update_repo "$path" "${repositories[$path]}"
+    clone_repo "$path" "${repositories[$path]}"
 done
 
 # Small delay to ensure all files are properly written
