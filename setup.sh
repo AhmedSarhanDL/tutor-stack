@@ -94,14 +94,15 @@ fi
 # 2. Clone or update subprojects
 print_status "Setting up subprojects..."
 
-# Define the repositories to clone
-declare -A repositories=(
-    ["services/auth"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
-    ["services/content"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-content.git"
-    ["services/assessment"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
-    ["services/notifier"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
-    ["services/tutor_chat"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-tutor_chat.git"
-    ["frontend"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
+# Define the repositories to clone (compatible with bash 3.2)
+# Format: path|url
+REPOSITORIES=(
+    "services/auth|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
+    "services/content|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-content.git"
+    "services/assessment|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
+    "services/notifier|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
+    "services/tutor_chat|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-tutor_chat.git"
+    "frontend|git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
 )
 
 # Function to clone repository (always fresh)
@@ -139,8 +140,10 @@ clone_repo() {
 print_status "Cloning repositories from GitHub organization: ${GITHUB_ORG}"
 print_status "Repository prefix: ${REPO_PREFIX}"
 
-for path in "${!repositories[@]}"; do
-    clone_repo "$path" "${repositories[$path]}"
+for repo_info in "${REPOSITORIES[@]}"; do
+    path=$(echo "$repo_info" | cut -d'|' -f1)
+    url=$(echo "$repo_info" | cut -d'|' -f2)
+    clone_repo "$path" "$url"
 done
 
 # Small delay to ensure all files are properly written
