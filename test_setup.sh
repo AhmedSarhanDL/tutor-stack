@@ -1,15 +1,10 @@
 #!/bin/bash
 
-# Tutor Stack Full Project Setup Script
+# Tutor Stack Test Setup Script - Minimal Version
 
 set -e  # Exit on any error
 
-echo "🚀 Setting up Tutor Stack Full Project..."
-
-# Configuration - Update these URLs to match your actual repositories
-# You can also set these as environment variables
-GITHUB_ORG=${GITHUB_ORG:-"your-org"}
-REPO_PREFIX=${REPO_PREFIX:-"tutor-stack"}
+echo "🧪 Setting up Tutor Stack for Testing..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -73,7 +68,7 @@ if [ ! -f "pyproject.toml" ]; then
     exit 1
 fi
 
-print_status "Starting Tutor Stack setup..."
+print_status "Starting Tutor Stack test setup..."
 
 # 0. Stop any running processes
 print_status "Stopping any running processes..."
@@ -83,62 +78,7 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 print_success "Processes stopped"
 
-# 1. Clone or update subprojects
-print_status "Setting up subprojects..."
-
-# Define the repositories to clone
-declare -A repositories=(
-    ["services/auth"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
-    ["services/content"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-content.git"
-    ["services/assessment"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
-    ["services/notifier"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
-    ["services/tutor_chat"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-tutor-chat.git"
-    ["frontend"]="https://github.com/${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
-)
-
-# Function to clone or update repository
-clone_or_update_repo() {
-    local path=$1
-    local repo_url=$2
-    
-    print_status "Setting up $path..."
-    
-    if [ -d "$path" ]; then
-        print_status "Removing existing $path directory..."
-        rm -rf "$path"
-    fi
-    
-    # Create parent directory if it doesn't exist
-    local parent_dir=$(dirname "$path")
-    if [ ! -d "$parent_dir" ]; then
-        mkdir -p "$parent_dir"
-    fi
-    
-    # Clone the repository
-    print_status "Cloning $repo_url to $path..."
-    if git clone "$repo_url" "$path" 2>/dev/null; then
-        print_success "$path cloned successfully"
-    else
-        print_error "Failed to clone $path from $repo_url"
-        print_status "Please check the repository URL and your git access"
-        return 1
-    fi
-}
-
-# Clone/update all repositories
-print_status "Cloning repositories from GitHub organization: ${GITHUB_ORG}"
-print_status "Repository prefix: ${REPO_PREFIX}"
-
-for path in "${!repositories[@]}"; do
-    clone_or_update_repo "$path" "${repositories[$path]}"
-done
-
-# Small delay to ensure all files are properly written
-sleep 2
-
-print_success "All subprojects updated"
-
-# 2. Check Python version (updated to 3.11+)
+# 1. Check Python version (updated to 3.11+)
 print_status "Checking Python version..."
 PYTHON_VERSION=$(python3.11 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 REQUIRED_VERSION="3.11"
@@ -151,7 +91,7 @@ fi
 
 print_success "Python version: $PYTHON_VERSION"
 
-# 3. Create virtual environment
+# 2. Create virtual environment
 print_status "Setting up Python virtual environment..."
 if [ ! -d "venv" ]; then
     python3.11 -m venv venv
@@ -160,31 +100,20 @@ else
     print_success "Virtual environment already exists"
 fi
 
-# 4. Activate virtual environment and install Python dependencies
+# 3. Activate virtual environment and install Python dependencies
 print_status "Installing Python dependencies..."
 source venv/bin/activate
-
-# Verify virtual environment is activated
-if [ -z "$VIRTUAL_ENV" ]; then
-    print_error "Virtual environment activation failed"
-    exit 1
-fi
-
-print_success "Virtual environment activated: $VIRTUAL_ENV"
-
 pip install --upgrade pip
 
-# Install core dependencies first (without local service dependencies)
-print_status "Installing core dependencies..."
-if [ -f "pyproject.toml" ]; then
-    # Install only the core dependencies, not the local service dependencies
-    pip install fastapi uvicorn[standard] pyjwt[crypto]==2.8.0
-    print_success "Core dependencies installed"
+# Install the main project first
+print_status "Installing main project..."
+if pip install -e .; then
+    print_success "Main project installed"
 else
-    print_warning "pyproject.toml not found, skipping core dependency installation"
+    print_warning "Main project installation failed, continuing with local service setup"
 fi
 
-# 5. Setup and install services
+# 4. Setup and install services (no git pulls)
 print_status "Setting up services..."
 if [ -d "services" ]; then
     cd services
@@ -197,16 +126,11 @@ if [ -d "services" ]; then
             print_status "Setting up $service service..."
             cd "$service"
             
-            # Check if the service has a pyproject.toml or setup.py
-            if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-                # Install the service
-                if pip install -e .; then
-                    print_success "$service service installed"
-                else
-                    print_warning "$service service installation failed, continuing..."
-                fi
+            # Install the service without git operations
+            if pip install -e .; then
+                print_success "$service service installed"
             else
-                print_warning "$service service has no pyproject.toml or setup.py, skipping installation"
+                print_warning "$service service installation failed, continuing..."
             fi
             cd ..
         else
@@ -220,21 +144,7 @@ else
     print_warning "Services directory not found"
 fi
 
-# Install the main project after services are available
-print_status "Installing main project..."
-if [ -f "pyproject.toml" ]; then
-    # Install the main project without the local service dependencies
-    # (they are already installed individually above)
-    if pip install -e . --no-deps; then
-        print_success "Main project installed"
-    else
-        print_warning "Main project installation failed, but continuing..."
-    fi
-else
-    print_warning "Main project has no pyproject.toml, skipping installation"
-fi
-
-# 6. Check Node.js for frontend
+# 5. Check Node.js for frontend
 print_status "Checking Node.js for frontend..."
 if ! command -v node &> /dev/null; then
     print_error "Node.js is not installed. Please install Node.js 18 or later."
@@ -250,7 +160,7 @@ fi
 
 print_success "Node.js version: $(node -v)"
 
-# 7. Setup frontend
+# 6. Setup frontend (no git pulls)
 print_status "Setting up frontend..."
 if [ -d "frontend" ]; then
     cd frontend
@@ -288,7 +198,7 @@ else
     print_warning "Frontend directory not found"
 fi
 
-# 8. Create main .env file if it doesn't exist
+# 7. Create main .env file if it doesn't exist
 print_status "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
@@ -322,12 +232,12 @@ else
     print_success "Main .env file already exists"
 fi
 
-# 9. Create keys directory and generate JWT keys
+# 8. Create keys directory and generate JWT keys
 print_status "Setting up keys directory..."
 mkdir -p keys
 generate_jwt_keys
 
-# 10. Initialize database
+# 9. Initialize database
 print_status "Initializing database..."
 if [ -f "venv/bin/python" ]; then
     # Create a temporary script to initialize the database
@@ -387,25 +297,27 @@ else
     print_warning "Virtual environment not found, skipping database initialization"
 fi
 
-# 11. Run unit tests (these don't need a server)
-print_status "Running unit tests..."
+# 10. Run unit tests with verbose output
+print_status "Running unit tests with verbose output..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
     export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
     export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
     export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
     
-    if python -m pytest tests/unit/ -v; then
+    print_status "Running unit tests..."
+    if python -m pytest tests/unit/ -v --tb=long; then
         print_success "Unit tests passed"
     else
-        print_warning "Unit tests failed, but continuing..."
+        print_error "Unit tests failed"
+        exit 1
     fi
 else
     print_warning "Tests directory not found"
 fi
 
-# 12. Start the full project
-print_status "🚀 Starting Tutor Stack full project..."
+# 11. Start the backend for integration testing
+print_status "🚀 Starting backend for integration testing..."
 echo ""
 
 # Start backend in background
@@ -432,8 +344,42 @@ else
     exit 1
 fi
 
-# Start frontend in background
-print_status "Starting frontend development server..."
+# 12. Run integration and smoke tests with verbose output
+print_status "Running integration and smoke tests with verbose output..."
+if [ -d "tests" ]; then
+    # Set environment variables for testing
+    export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
+    export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
+    export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
+    
+    # Wait a bit more for server to be fully ready
+    sleep 3
+    
+    # Run integration tests with verbose output
+    print_status "Running integration tests..."
+    if python -m pytest tests/integration/ -v --tb=long; then
+        print_success "Integration tests completed"
+    else
+        print_error "Integration tests failed"
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 1
+    fi
+    
+    # Run smoke tests with verbose output
+    print_status "Running smoke tests..."
+    if python -m pytest tests/e2e/ -v --tb=long; then
+        print_success "Smoke tests completed"
+    else
+        print_error "Smoke tests failed"
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 1
+    fi
+else
+    print_warning "Tests directory not found"
+fi
+
+# 13. Start frontend for full testing
+print_status "Starting frontend for full testing..."
 if [ -d "frontend" ]; then
     cd frontend
     npm run dev &
@@ -453,50 +399,18 @@ else
     FRONTEND_PID=""
 fi
 
-# 13. Run integration and smoke tests (after server is running)
-print_status "Running integration and smoke tests..."
-if [ -d "tests" ]; then
-    # Set environment variables for testing
-    export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
-    export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
-    export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
-    
-    # Wait a bit more for server to be fully ready
-    sleep 3
-    
-    # Run integration tests
-    print_status "Running integration tests..."
-    if python -m pytest tests/integration/ -v --tb=short; then
-        print_success "Integration tests completed"
-    else
-        print_warning "Integration tests failed, but continuing..."
-    fi
-    
-    # Run smoke tests
-    print_status "Running smoke tests..."
-    if python -m pytest tests/e2e/ -v --tb=short; then
-        print_success "Smoke tests completed"
-    else
-        print_warning "Smoke tests failed, but continuing..."
-    fi
-else
-    print_warning "Tests directory not found"
-fi
-
-print_success "🎉 Tutor Stack is now running!"
+print_success "🎉 Tutor Stack test setup complete!"
 echo ""
 echo "🌐 Access your application:"
 echo "   - Frontend: http://localhost:3000"
 echo "   - Backend API: http://localhost:8000"
 echo "   - API Documentation: http://localhost:8000/docs"
 echo ""
+echo "✅ All tests have been run with verbose output"
+echo ""
 echo "🛑 To stop the servers:"
 echo "   - Press Ctrl+C in this terminal"
 echo "   - Or run: pkill -f 'python main.py' && pkill -f 'vite'"
-echo ""
-echo "📚 Documentation:"
-echo "   - README.md - Main project documentation"
-echo "   - frontend/README.md - Frontend documentation"
 echo ""
 
 # Function to cleanup on exit

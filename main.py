@@ -128,6 +128,20 @@ if chat_app:
 if auth_app:
     app.mount("/auth", auth_app)
 
+# Manual database initialization for auth service
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables for mounted services"""
+    if auth_app:
+        try:
+            from services.auth.tutor_stack_auth.database import engine, Base
+            print("Creating auth service database tables...")
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("✓ Auth service database tables created")
+        except Exception as e:
+            print(f"Warning: Could not initialize auth database: {e}")
+
 @app.get("/")
 async def root():
     return {
