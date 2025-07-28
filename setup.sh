@@ -6,9 +6,9 @@ set -e  # Exit on any error
 
 echo "🚀 Setting up Tutor Stack Full Project..."
 
-# Configuration - This is a monorepo, so we don't need to clone separate repos
+# Configuration - These are the actual repositories to clone
 GITHUB_ORG=${GITHUB_ORG:-"AhmedSarhanDL"}
-REPO_NAME=${REPO_NAME:-"tutor-stack"}
+REPO_PREFIX=${REPO_PREFIX:-"tutor-stack"}
 
 # Colors for output
 RED='\033[0;31m'
@@ -82,15 +82,71 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 print_success "Processes stopped"
 
-# 1. Update the current repository to get latest changes
-print_status "Updating repository to latest changes..."
+# 1. Update the main repository
+print_status "Updating main repository to latest changes..."
 if git pull origin main 2>/dev/null || git pull origin master 2>/dev/null; then
-    print_success "Repository updated to latest changes"
+    print_success "Main repository updated to latest changes"
 else
     print_warning "Could not pull latest changes, continuing with current state"
 fi
 
-# 2. Check Python version (updated to 3.11+)
+# 2. Clone or update subprojects
+print_status "Setting up subprojects..."
+
+# Define the repositories to clone
+declare -A repositories=(
+    ["services/auth"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-auth.git"
+    ["services/content"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-content.git"
+    ["services/assessment"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-assessment.git"
+    ["services/notifier"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-notifier.git"
+    ["services/tutor_chat"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-tutor_chat.git"
+    ["frontend"]="git@github.com:${GITHUB_ORG}/${REPO_PREFIX}-frontend.git"
+)
+
+# Function to clone or update repository
+clone_or_update_repo() {
+    local path=$1
+    local repo_url=$2
+    
+    print_status "Setting up $path..."
+    
+    if [ -d "$path" ]; then
+        print_status "Removing existing $path directory to get fresh copy..."
+        rm -rf "$path"
+    fi
+    
+    # Create parent directory if it doesn't exist
+    local parent_dir=$(dirname "$path")
+    if [ ! -d "$parent_dir" ]; then
+        mkdir -p "$parent_dir"
+    fi
+    
+    # Clone the repository
+    print_status "Cloning $repo_url to $path..."
+    if git clone "$repo_url" "$path" 2>/dev/null; then
+        print_success "$path cloned successfully"
+    else
+        print_error "Failed to clone $path from $repo_url"
+        print_status "Please check the repository URL and your git access"
+        print_status "Repository URL: $repo_url"
+        return 1
+    fi
+}
+
+# Clone/update all repositories
+print_status "Cloning repositories from GitHub organization: ${GITHUB_ORG}"
+print_status "Repository prefix: ${REPO_PREFIX}"
+
+for path in "${!repositories[@]}"; do
+    clone_or_update_repo "$path" "${repositories[$path]}"
+done
+
+# Small delay to ensure all files are properly written
+sleep 2
+
+print_success "All subprojects updated"
+
+# 3. Check Python version (updated to 3.11+)
 print_status "Checking Python version..."
 PYTHON_VERSION=$(python3.11 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 REQUIRED_VERSION="3.11"
@@ -103,7 +159,7 @@ fi
 
 print_success "Python version: $PYTHON_VERSION"
 
-# 3. Create virtual environment
+# 4. Create virtual environment
 print_status "Setting up Python virtual environment..."
 if [ ! -d "venv" ]; then
     python3.11 -m venv venv
@@ -112,7 +168,7 @@ else
     print_success "Virtual environment already exists"
 fi
 
-# 4. Activate virtual environment and install Python dependencies
+# 5. Activate virtual environment and install Python dependencies
 print_status "Installing Python dependencies..."
 source venv/bin/activate
 
@@ -136,7 +192,7 @@ else
     print_warning "pyproject.toml not found, skipping core dependency installation"
 fi
 
-# 5. Setup and install services (if they exist in the monorepo)
+# 6. Setup and install services
 print_status "Setting up services..."
 if [ -d "services" ]; then
     cd services
@@ -186,7 +242,7 @@ else
     print_warning "Main project has no pyproject.toml, skipping installation"
 fi
 
-# 6. Check Node.js for frontend
+# 7. Check Node.js for frontend
 print_status "Checking Node.js for frontend..."
 if ! command -v node &> /dev/null; then
     print_error "Node.js is not installed. Please install Node.js 18 or later."
@@ -202,7 +258,7 @@ fi
 
 print_success "Node.js version: $(node -v)"
 
-# 7. Setup frontend
+# 8. Setup frontend
 print_status "Setting up frontend..."
 if [ -d "frontend" ]; then
     cd frontend
@@ -240,7 +296,7 @@ else
     print_warning "Frontend directory not found"
 fi
 
-# 8. Create main .env file if it doesn't exist
+# 9. Create main .env file if it doesn't exist
 print_status "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
@@ -274,12 +330,12 @@ else
     print_success "Main .env file already exists"
 fi
 
-# 9. Create keys directory and generate JWT keys
+# 10. Create keys directory and generate JWT keys
 print_status "Setting up keys directory..."
 mkdir -p keys
 generate_jwt_keys
 
-# 10. Initialize database
+# 11. Initialize database
 print_status "Initializing database..."
 if [ -f "venv/bin/python" ]; then
     # Create a temporary script to initialize the database
@@ -339,7 +395,7 @@ else
     print_warning "Virtual environment not found, skipping database initialization"
 fi
 
-# 11. Run unit tests (these don't need a server)
+# 12. Run unit tests (these don't need a server)
 print_status "Running unit tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
@@ -356,7 +412,7 @@ else
     print_warning "Tests directory not found"
 fi
 
-# 12. Start the full project
+# 13. Start the full project
 print_status "🚀 Starting Tutor Stack full project..."
 echo ""
 
@@ -405,7 +461,7 @@ else
     FRONTEND_PID=""
 fi
 
-# 13. Run integration and smoke tests (after server is running)
+# 14. Run integration and smoke tests (after server is running)
 print_status "Running integration and smoke tests..."
 if [ -d "tests" ]; then
     # Set environment variables for testing
