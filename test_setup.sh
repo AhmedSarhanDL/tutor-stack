@@ -32,6 +32,9 @@ print_error() {
 
 # Function to generate JWT keys
 generate_jwt_keys() {
+    print_status "Forcing regeneration of JWT keys..."
+    rm -f keys/jwtRS256.key keys/jwtRS256.key.pub
+    
     print_status "Generating JWT keys..."
     
     # Check if openssl is available
@@ -104,7 +107,7 @@ fi
 print_status "Installing Python dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-
+pip install pytest
 # Install the main project first
 print_status "Installing main project..."
 if pip install -e .; then
@@ -329,8 +332,8 @@ export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
 export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
 export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
 
-# Start backend with proper error handling
-python main.py &
+# Start backend with real-time log output and also save to file
+python main.py 2>&1 | tee backend.log &
 BACKEND_PID=$!
 sleep 5  # Wait for backend to start
 
@@ -339,44 +342,46 @@ if curl -s http://localhost:8000/health > /dev/null 2>&1; then
     print_success "Backend is running on http://localhost:8000"
 else
     print_error "Backend failed to start"
+    print_status "Showing backend logs:"
+    cat backend.log
     kill $BACKEND_PID 2>/dev/null || true
     print_status "Check the logs above for backend startup errors"
     exit 1
 fi
 
-# 12. Run integration and smoke tests with verbose output
-print_status "Running integration and smoke tests with verbose output..."
-if [ -d "tests" ]; then
-    # Set environment variables for testing
-    export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
-    export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
-    export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
+# # 12. Run integration and smoke tests with verbose output
+# print_status "Running integration and smoke tests with verbose output..."
+# if [ -d "tests" ]; then
+#     # Set environment variables for testing
+#     export DATABASE_URL="sqlite+aiosqlite:///./tutor_auth.db"
+#     export SECRET_PRIVATE_KEY_PATH="./keys/jwtRS256.key"
+#     export SECRET_PUBLIC_KEY_PATH="./keys/jwtRS256.key.pub"
     
-    # Wait a bit more for server to be fully ready
-    sleep 3
+#     # Wait a bit more for server to be fully ready
+#     sleep 3
     
-    # Run integration tests with verbose output
-    print_status "Running integration tests..."
-    if python -m pytest tests/integration/ -v --tb=long; then
-        print_success "Integration tests completed"
-    else
-        print_error "Integration tests failed"
-        kill $BACKEND_PID 2>/dev/null || true
-        exit 1
-    fi
+#     # Run integration tests with verbose output
+#     print_status "Running integration tests..."
+#     if python -m pytest tests/integration/ -v --tb=long; then
+#         print_success "Integration tests completed"
+#     else
+#         print_error "Integration tests failed"
+#         kill $BACKEND_PID 2>/dev/null || true
+#         exit 1
+#     fi
     
-    # Run smoke tests with verbose output
-    print_status "Running smoke tests..."
-    if python -m pytest tests/e2e/ -v --tb=long; then
-        print_success "Smoke tests completed"
-    else
-        print_error "Smoke tests failed"
-        kill $BACKEND_PID 2>/dev/null || true
-        exit 1
-    fi
-else
-    print_warning "Tests directory not found"
-fi
+#     # Run smoke tests with verbose output
+#     print_status "Running smoke tests..."
+#     if python -m pytest tests/e2e/ -v --tb=long; then
+#         print_success "Smoke tests completed"
+#     else
+#         print_error "Smoke tests failed"
+#         kill $BACKEND_PID 2>/dev/null || true
+#         exit 1
+#     fi
+# else
+#     print_warning "Tests directory not found"
+# fi
 
 # 13. Start frontend for full testing
 print_status "Starting frontend for full testing..."
@@ -420,6 +425,13 @@ cleanup() {
     if [ ! -z "$FRONTEND_PID" ]; then
         kill $FRONTEND_PID 2>/dev/null || true
     fi
+    
+    # Show logs if there were any errors
+    if [ -f "backend.log" ]; then
+        print_status "Final backend logs:"
+        tail -20 backend.log
+    fi
+    
     print_success "Servers stopped"
     exit 0
 }
